@@ -1,11 +1,11 @@
-import { createEffect, JSXElement, ParentComponent, Setter } from "solid-js";
-import { cn } from "../libs/cn";
 import {
   animate,
   AnimationOptions,
   DOMKeyframesDefinition,
   press,
 } from "motion";
+import { createEffect, JSXElement, ParentComponent, Setter } from "solid-js";
+import { cn } from "../libs/cn";
 
 const Card: ParentComponent<{
   back: JSXElement;

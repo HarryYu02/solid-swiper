@@ -1,39 +1,18 @@
+import { animate } from "motion";
 import {
-  createSignal,
-  createEffect,
-  For,
   batch,
+  createEffect,
+  createSignal,
+  For,
   type Component,
 } from "solid-js";
-import ArrowLeft from "./ArrowLeft";
-import ArrowRight from "./ArrowRight";
+import { initialCards } from "../constants/cardItems";
 import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
-import { animate } from "motion";
+import ArrowLeft from "./ArrowLeft";
+import ArrowRight from "./ArrowRight";
 import Card from "./Card";
 
-const initialCards = [
-  {
-    id: 1,
-    name: "Card 1",
-  },
-  {
-    id: 2,
-    name: "Card 2",
-  },
-  {
-    id: 3,
-    name: "Card 3",
-  },
-  {
-    id: 4,
-    name: "Card 4",
-  },
-  {
-    id: 5,
-    name: "Card 5",
-  },
-];
 const MIN_SWIPE_THRESHOLD = 3; // 3px
 const SWIPE_SENSITIVITY = 1.3;
 
@@ -104,82 +83,101 @@ const Swiper: Component = () => {
 
   return (
     <div class="flex w-full flex-col items-center gap-4 overflow-hidden">
-      <div
-        class="relative flex w-[19rem] items-center overflow-hidden"
-        onPointerDown={(e) => {
-          if (!tapped()) {
-            setPrevX(e.clientX);
-            setDelta(0);
-            setIsDragging(true);
-          }
-        }}
-        onPointerMove={(e) => {
-          if (!isDragging()) return;
-          const diff = e.clientX - prevX();
-          if (Math.abs(diff) > MIN_SWIPE_THRESHOLD) {
-            setDelta((d) => d + diff * SWIPE_SENSITIVITY);
-            setPrevX(e.clientX);
-          }
-        }}
-        onPointerLeave={onDragDone}
-        onPointerUp={onDragDone}
-      >
-        <button
-          class={cn(
-            "absolute left-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
-            "cursor-pointer",
-            !canGoPrev() && "cursor-not-allowed",
-            tapped() != 0 && "hidden",
-          )}
-          disabled={!canGoPrev() || tapped() != 0}
-          onClick={onPrevClicked}
-        >
-          <ArrowLeft />
-        </button>
+      <div class="flex h-96 flex-col justify-center gap-8 overflow-hidden">
         <div
-          ref={cardsDiv}
-          class="my-16 flex h-48 snap-x flex-nowrap items-center gap-4 px-14"
+          class="relative flex w-[19rem] items-center"
+          onPointerDown={(e) => {
+            if (!tapped()) {
+              setPrevX(e.clientX);
+              setDelta(0);
+              setIsDragging(true);
+            }
+          }}
+          onPointerMove={(e) => {
+            if (!isDragging()) return;
+            const diff = e.clientX - prevX();
+            if (Math.abs(diff) > MIN_SWIPE_THRESHOLD) {
+              setDelta((d) => d + diff * SWIPE_SENSITIVITY);
+              setPrevX(e.clientX);
+            }
+          }}
+          onPointerLeave={onDragDone}
+          onPointerUp={onDragDone}
         >
+          <button
+            class={cn(
+              "absolute left-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
+              "cursor-pointer",
+              !canGoPrev() && "cursor-not-allowed",
+              tapped() != 0 && "hidden",
+            )}
+            disabled={!canGoPrev() || tapped() != 0}
+            onClick={onPrevClicked}
+          >
+            <ArrowLeft />
+          </button>
+          <div
+            ref={cardsDiv}
+            class="flex h-48 snap-x flex-nowrap items-center gap-4 px-14"
+          >
+            <For each={cards()}>
+              {(card, i) => {
+                const isFocused = () => i() == currentPos();
+                return (
+                  <Card
+                    back={
+                      <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
+                        Back of {card.name}
+                      </p>
+                    }
+                    canBeTapped={isFocused() && !isDragging()}
+                    currentPos={currentPos()}
+                    setTapped={setTapped}
+                    tapped={tapped()}
+                  >
+                    <p class="pointer-events-none text-3xl font-semibold text-white select-none">
+                      {card.name}
+                    </p>
+                  </Card>
+                );
+              }}
+            </For>
+          </div>
+          <button
+            class={cn(
+              "absolute right-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
+              "cursor-pointer",
+              !canGoNext() && "cursor-not-allowed",
+              tapped() != 0 && "hidden",
+            )}
+            disabled={!canGoNext() || tapped() != 0}
+            onClick={onNextClicked}
+          >
+            <ArrowRight />
+          </button>
+        </div>
+        {/* <div class="flex items-center justify-center">
+        <p>
+          {currentPos() + 1}/{cards().length}
+        </p>
+      </div> */}
+        <div class="flex items-center justify-center gap-2">
           <For each={cards()}>
             {(card, i) => {
               const isFocused = () => i() == currentPos();
               return (
-                <Card
-                  back={
-                    <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
-                      Back of {card.name}
-                    </p>
-                  }
-                  canBeTapped={isFocused() && !isDragging()}
-                  currentPos={currentPos()}
-                  setTapped={setTapped}
-                  tapped={tapped()}
-                >
-                  <p class="pointer-events-none text-3xl font-semibold text-white select-none">
-                    {card.name}
-                  </p>
-                </Card>
+                <div
+                  class={cn(
+                    "transition-colors",
+                    "size-2 cursor-pointer rounded-full bg-slate-700",
+                    isFocused() && "bg-white",
+                  )}
+                  onClick={() => setCurrentPos(i())}
+                ></div>
               );
             }}
           </For>
         </div>
-        <button
-          class={cn(
-            "absolute right-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
-            "cursor-pointer",
-            !canGoNext() && "cursor-not-allowed",
-            tapped() != 0 && "hidden",
-          )}
-          disabled={!canGoNext() || tapped() != 0}
-          onClick={onNextClicked}
-        >
-          <ArrowRight />
-        </button>
-      </div>
-      <div class="flex items-center justify-center">
-        <p>
-          {currentPos() + 1}/{cards().length}
-        </p>
       </div>
       <div class="flex items-center justify-center gap-4">
         <button
