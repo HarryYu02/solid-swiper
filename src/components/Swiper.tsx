@@ -83,7 +83,7 @@ const Swiper: Component = () => {
 
   return (
     <div class="flex w-full flex-col items-center gap-4 overflow-hidden">
-      <div class="flex h-96 flex-col justify-center gap-8 overflow-hidden">
+      <div class="flex h-96 w-[19rem] flex-col justify-center gap-8 overflow-hidden">
         <div
           class="relative flex w-[19rem] items-center"
           onPointerDown={(e) => {
@@ -161,9 +161,9 @@ const Swiper: Component = () => {
           {currentPos() + 1}/{cards().length}
         </p>
       </div> */}
-        <div class="flex items-center justify-center gap-2">
+        <div class="flex flex-nowrap items-center justify-center gap-2">
           <For each={cards()}>
-            {(card, i) => {
+            {(_, i) => {
               const isFocused = () => i() == currentPos();
               return (
                 <div
