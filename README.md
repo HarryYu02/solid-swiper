@@ -22,5 +22,6 @@ pnpm dev
 Visit http://localhost:3000 to see the demo.
 
 ## Development
+
 - Prepend may visually shift cards due to index offset
 - Dynamically render items
