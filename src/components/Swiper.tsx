@@ -9,12 +9,7 @@ import ArrowLeft from "./ArrowLeft";
 import ArrowRight from "./ArrowRight";
 import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
-import {
-  animate,
-  AnimationOptions,
-  DOMKeyframesDefinition,
-  press,
-} from "motion";
+import { animate } from "motion";
 import Card from "./Card";
 
 const initialCards = [
@@ -100,42 +95,6 @@ const Swiper: Component = () => {
   const [tapped, setTapped] = createSignal(0);
 
   createEffect(() => {
-    press(".card", (element) => {
-      const pressPos = currentPos();
-      // On press end
-      return () => {
-        let anim: DOMKeyframesDefinition;
-        let opt: AnimationOptions;
-
-        if (isDragging() || currentPos() != pressPos) return;
-
-        switch (tapped()) {
-          case 0:
-            anim = { scale: 1.5, rotateY: 0, zIndex: 20 };
-            opt = { type: "spring", stiffness: 500 };
-            break;
-          case 1:
-            anim = { rotateY: 180 };
-            opt = { type: "spring", duration: 1, stiffness: 100 };
-            break;
-          case 2:
-            anim = { scale: 1, rotateY: 0, zIndex: 0 };
-            opt = { type: "spring", stiffness: 200 };
-            break;
-          default:
-            break;
-        }
-
-        const a = animate(element, anim, opt);
-        setTapped((tapped) => {
-          if (tapped == 2) return 0;
-          return tapped + 1;
-        });
-      };
-    });
-  });
-
-  createEffect(() => {
     animate(
       cardsDiv,
       { x: `calc(-${currentPos() * 13}rem + ${delta()}px)` },
@@ -182,16 +141,21 @@ const Swiper: Component = () => {
           class="my-16 flex h-48 snap-x flex-nowrap items-center gap-4 px-14"
         >
           <For each={cards()}>
-            {(card) => {
+            {(card, i) => {
+              const isFocused = () => i() == currentPos();
               return (
                 <Card
                   back={
-                    <p class="pointer-events-none text-center text-3xl font-semibold text-white">
+                    <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
                       Back of {card.name}
                     </p>
                   }
+                  canBeTapped={isFocused() && !isDragging()}
+                  currentPos={currentPos()}
+                  setTapped={setTapped}
+                  tapped={tapped()}
                 >
-                  <p class="pointer-events-none text-3xl font-semibold text-white">
+                  <p class="pointer-events-none text-3xl font-semibold text-white select-none">
                     {card.name}
                   </p>
                 </Card>
