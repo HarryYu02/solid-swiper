@@ -36,7 +36,15 @@ const App: Component = () => {
           Solid Swiper
         </a>
       </h1>
-      <SwiperProvider items={cards}>
+      <SwiperProvider
+        items={cards}
+        opts={{
+          cardWidth: 192,
+          cardGap: 16,
+          swipeSensitivity: 1.3,
+          swipeThreshold: 3,
+        }}
+      >
         <SwiperContent class="h-96 w-[19rem] pl-14" />
         <SwiperPrevious class="top-1/2 left-2 -translate-y-1/2" />
         <SwiperNext class="top-1/2 right-2 -translate-y-1/2" />
