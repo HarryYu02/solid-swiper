@@ -1,9 +1,27 @@
-import { animate } from "motion";
 import {
+  animate,
+  AnimationOptions,
+  DOMKeyframesDefinition,
+  press,
+} from "motion";
+import {
+  Accessor,
   batch,
+  ComponentProps,
+  createContext,
   createEffect,
+  createMemo,
   createSignal,
   For,
+  JSXElement,
+  mergeProps,
+  onCleanup,
+  ParentComponent,
+  ParentProps,
+  Setter,
+  splitProps,
+  useContext,
+  VoidComponent,
   type Component,
 } from "solid-js";
 import { initialCards } from "../constants/cardItems";
@@ -15,186 +33,321 @@ import Card from "./Card";
 
 const MIN_SWIPE_THRESHOLD = 3; // 3px
 const SWIPE_SENSITIVITY = 1.3;
+const CARD_GAP = 16; // 16px or 1rem
+const CARD_WIDTH = 192; // 192px or 12rem
+const CARD_FULL = CARD_WIDTH + CARD_GAP;
 
-const Swiper: Component = () => {
+type SwiperProps = {
+  items: Accessor<typeof initialCards>;
+  opts?: { swipeThreshold: number; swipeSensitivity: number };
+};
+
+type SwiperContextProps = {
+  isLocked: Accessor<boolean>;
+  toggleLocked: () => void;
+  selected: Accessor<number>;
+  swipePrev: () => void;
+  swipeNext: () => void;
+  swipeTo: Setter<number>;
+  swipeBy: (n: number) => void;
+  canSwipePrev: Accessor<boolean>;
+  canSwipeNext: Accessor<boolean>;
+} & SwiperProps;
+
+const SwiperContext = createContext<Accessor<SwiperContextProps> | null>(null);
+
+const useSwiper = () => {
+  const context = useContext(SwiperContext);
+  if (!context) {
+    throw new Error("useSwiper must be used within a <Swiper />");
+  }
+  return context();
+};
+
+export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
+  props,
+) => {
+  const merge = mergeProps<ParentProps<ComponentProps<"div"> & SwiperProps>[]>(
+    {
+      items: () => [],
+      opts: {
+        swipeThreshold: MIN_SWIPE_THRESHOLD,
+        swipeSensitivity: SWIPE_SENSITIVITY,
+      },
+    },
+    props,
+  );
+  const [local, rest] = splitProps(merge, [
+    "items",
+    "opts",
+    "class",
+    "children",
+  ]);
+
+  const [selected, setSelected] = createSignal<number>(0);
+  const [isLocked, setIsLocked] = createSignal<boolean>(false);
+  const adjustCurrentPos = (n: number) => {
+    setSelected((pos) => clamp(pos + n, 0, local.items().length - 1));
+  };
+  const canSwipePrev: Accessor<boolean> = () => selected() > 0;
+  const canSwipeNext: Accessor<boolean> = () =>
+    selected() < local.items().length - 1;
+  const onPrevClicked = () => {
+    if (canSwipePrev()) adjustCurrentPos(-1);
+  };
+  const onNextClicked = () => {
+    if (canSwipeNext()) adjustCurrentPos(1);
+  };
+  const toggleLocked = () => setIsLocked((isLocked) => !isLocked);
+
+  const value = createMemo(() => {
+    return {
+      items: local.items,
+      opts: local.opts,
+      selected,
+      isLocked,
+      toggleLocked,
+      canSwipeNext,
+      canSwipePrev,
+      swipeNext: onNextClicked,
+      swipePrev: onPrevClicked,
+      swipeTo: setSelected,
+      swipeBy: adjustCurrentPos,
+    } satisfies SwiperContextProps;
+  });
+
+  return (
+    <SwiperContext.Provider value={value}>
+      <div
+        class={cn("relative", local.class)}
+        role="region"
+        aria-roledescription="swiper"
+        {...rest}
+      >
+        {local.children}
+      </div>
+    </SwiperContext.Provider>
+  );
+};
+
+export const SwiperPrevious: VoidComponent<ComponentProps<"button">> = (
+  props,
+) => {
+  const [local, rest] = splitProps(props, ["class"]);
+  const { canSwipePrev, swipePrev, isLocked } = useSwiper();
+  return (
+    <button
+      class={cn(
+        "absolute z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
+        "cursor-pointer touch-manipulation",
+        local.class,
+        !canSwipePrev() && "cursor-not-allowed",
+        isLocked() && "hidden",
+      )}
+      disabled={!canSwipePrev() || isLocked()}
+      onClick={swipePrev}
+      {...rest}
+    >
+      <ArrowLeft />
+    </button>
+  );
+};
+
+export const SwiperNext: VoidComponent<ComponentProps<"button">> = (props) => {
+  const [local, rest] = splitProps(props, ["class"]);
+  const { canSwipeNext, swipeNext, isLocked } = useSwiper();
+  return (
+    <button
+      class={cn(
+        "absolute z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
+        "cursor-pointer touch-manipulation",
+        local.class,
+        !canSwipeNext() && "cursor-not-allowed",
+        isLocked() && "hidden",
+      )}
+      disabled={!canSwipeNext() || isLocked()}
+      onClick={swipeNext}
+      {...rest}
+    >
+      <ArrowRight />
+    </button>
+  );
+};
+
+export const SwiperCounter: VoidComponent<ComponentProps<"div">> = (props) => {
+  const { selected, items } = useSwiper();
+
+  return (
+    <div class={cn("flex items-center justify-center", props.class)}>
+      <p>
+        {selected() + 1}/{items().length}
+      </p>
+    </div>
+  );
+};
+
+export const SwiperItem: ParentComponent<
+  ComponentProps<"div"> & {
+    back: JSXElement;
+    canBeTapped: Accessor<boolean>;
+    toggleLocked: () => void;
+    currentPos: number;
+  }
+> = (props) => {
+  let cardRef: HTMLDivElement | undefined;
+  const [tapped, setTapped] = createSignal<number>(0);
+
+  createEffect(() => {
+    const cancelPress = press(cardRef, (element) => {
+      const pressPos = props.currentPos;
+      // On press end
+      return () => {
+        let anim: DOMKeyframesDefinition;
+        let opt: AnimationOptions;
+
+        if (!props.canBeTapped() || props.currentPos != pressPos) return;
+
+        switch (tapped()) {
+          case 0:
+            anim = { scale: 1.5, rotateY: 0, zIndex: 20 };
+            opt = { type: "spring", stiffness: 500 };
+            break;
+          case 1:
+            anim = { rotateY: 180 };
+            opt = { type: "spring", duration: 1, stiffness: 100 };
+            break;
+          case 2:
+            anim = { scale: 1, rotateY: 0, zIndex: 0 };
+            opt = { type: "spring", stiffness: 200 };
+            break;
+          default:
+            break;
+        }
+
+        animate(element, anim, opt);
+        setTapped((prev) => {
+          if (prev == 0 || prev == 2) props.toggleLocked();
+          const next = prev === 2 ? 0 : prev + 1;
+          return next;
+        });
+      };
+    });
+
+    onCleanup(() => {
+      cancelPress();
+    });
+  });
+
+  return (
+    <div
+      ref={cardRef}
+      class={cn(
+        "card aspect-square rounded-lg bg-slate-700 shadow-xl",
+        "flex cursor-pointer snap-center items-center justify-center",
+        "relative perspective-distant transform-3d",
+      )}
+      style={{
+        width: `${CARD_WIDTH}px`,
+      }}
+    >
+      <div class="absolute backface-hidden">{props.children}</div>
+      <div class="absolute rotate-y-180 backface-hidden">{props.back}</div>
+    </div>
+  );
+};
+
+export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   let cardsDiv: HTMLDivElement | undefined;
+  const { opts, selected, isLocked, toggleLocked, swipeBy, items } =
+    useSwiper();
 
-  const [cards, setCards] = createSignal(initialCards);
-  const [currentPos, setCurrentPos] = createSignal<number>(0);
   const [prevX, setPrevX] = createSignal(0);
   const [delta, setDelta] = createSignal<number>(0);
   const [isDragging, setIsDragging] = createSignal(false);
 
-  const canGoPrev = () => currentPos() > 0;
-  const canGoNext = () => currentPos() < cards().length - 1;
-
-  const adjustCurrentPos = (n: number) =>
-    setCurrentPos((pos) => clamp(pos + n, 0, cards().length - 1));
-
-  const onPrevClicked = () => {
-    if (canGoPrev()) adjustCurrentPos(-1);
-  };
-  const onNextClicked = () => {
-    if (canGoNext()) adjustCurrentPos(1);
-  };
-  const onPrependClicked = () => {
+  const resetDragSignals = () =>
     batch(() => {
-      const firstCard = cards()[0];
-      setCards((cards) => [
-        { id: firstCard.id - 1, name: `Card ${firstCard.id - 1}` },
-        ...cards,
-      ]);
-      adjustCurrentPos(1);
+      setPrevX(0);
+      setDelta(0);
+      setIsDragging(false);
     });
-  };
-  const onAppendClicked = () => {
-    const lastCard = cards()[cards().length - 1];
-    setCards((cards) => [
-      ...cards,
-      { id: lastCard.id + 1, name: `Card ${lastCard.id + 1}` },
-    ]);
-  };
 
   const onDragDone = () => {
     if (isDragging() && delta() != 0 && prevX() != 0) {
       const distance = Math.abs(delta());
-      if (distance > 312) {
-        // 1.5 card width + 1 space around = 312px
-        adjustCurrentPos(-1 * Math.floor((delta() + 104) / 208));
-      } else if (distance > 104) {
-        // 0.5 card width + 0.5 space around = 104px
-        adjustCurrentPos(delta() < 0 ? 1 : -1);
+      if (distance > CARD_FULL * 1.5) {
+        swipeBy(-1 * Math.floor((delta() + CARD_FULL / 2) / CARD_FULL));
+      } else if (distance > CARD_FULL / 2) {
+        swipeBy(delta() < 0 ? 1 : -1);
       }
     }
-    setPrevX(0);
-    setDelta(0);
-    setIsDragging(false);
+    resetDragSignals();
   };
-
-  const [tapped, setTapped] = createSignal(0);
 
   createEffect(() => {
     animate(
       cardsDiv,
-      { x: `calc(-${currentPos() * 13}rem + ${delta()}px)` },
+      { x: `calc(-${selected() * CARD_FULL}px + ${delta()}px)` },
       { duration: 0.7, ease: "easeInOut", type: "spring", bounce: 0.25 },
     );
   });
 
   return (
-    <div class="flex w-full flex-col items-center gap-4 overflow-hidden">
-      <div class="flex h-96 w-[19rem] flex-col justify-center gap-8 overflow-hidden">
-        <div
-          class="relative flex w-[19rem] items-center"
-          onPointerDown={(e) => {
-            if (!tapped()) {
+    <div class="flex overflow-hidden">
+      <div
+        ref={cardsDiv}
+        class={cn("flex items-center", props.class)}
+        onPointerDown={(e) => {
+          if (!isLocked()) {
+            batch(() => {
               setPrevX(e.clientX);
               setDelta(0);
               setIsDragging(true);
-            }
+            });
+          }
+        }}
+        onPointerMove={(e) => {
+          if (!isDragging()) return;
+          const diff = e.clientX - prevX();
+          if (Math.abs(diff) > opts.swipeThreshold) {
+            setDelta((d) => d + diff * opts.swipeSensitivity);
+            setPrevX(e.clientX);
+          }
+        }}
+        onPointerLeave={onDragDone}
+        onPointerCancel={onDragDone}
+        onPointerUp={onDragDone}
+      >
+        <div
+          ref={cardsDiv}
+          class="flex flex-nowrap items-center"
+          style={{
+            gap: `${CARD_GAP}px`,
           }}
-          onPointerMove={(e) => {
-            if (!isDragging()) return;
-            const diff = e.clientX - prevX();
-            if (Math.abs(diff) > MIN_SWIPE_THRESHOLD) {
-              setDelta((d) => d + diff * SWIPE_SENSITIVITY);
-              setPrevX(e.clientX);
-            }
-          }}
-          onPointerLeave={onDragDone}
-          onPointerUp={onDragDone}
         >
-          <button
-            class={cn(
-              "absolute left-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
-              "cursor-pointer",
-              !canGoPrev() && "cursor-not-allowed",
-              tapped() != 0 && "hidden",
-            )}
-            disabled={!canGoPrev() || tapped() != 0}
-            onClick={onPrevClicked}
-          >
-            <ArrowLeft />
-          </button>
-          <div
-            ref={cardsDiv}
-            class="flex h-48 snap-x flex-nowrap items-center gap-4 px-14"
-          >
-            <For each={cards()}>
-              {(card, i) => {
-                const isFocused = () => i() == currentPos();
-                return (
-                  <Card
-                    back={
-                      <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
-                        Back of {card.name}
-                      </p>
-                    }
-                    canBeTapped={isFocused() && !isDragging()}
-                    currentPos={currentPos()}
-                    setTapped={setTapped}
-                    tapped={tapped()}
-                  >
-                    <p class="pointer-events-none text-3xl font-semibold text-white select-none">
-                      {card.name}
-                    </p>
-                  </Card>
-                );
-              }}
-            </For>
-          </div>
-          <button
-            class={cn(
-              "absolute right-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
-              "cursor-pointer",
-              !canGoNext() && "cursor-not-allowed",
-              tapped() != 0 && "hidden",
-            )}
-            disabled={!canGoNext() || tapped() != 0}
-            onClick={onNextClicked}
-          >
-            <ArrowRight />
-          </button>
-        </div>
-        {/* <div class="flex items-center justify-center">
-        <p>
-          {currentPos() + 1}/{cards().length}
-        </p>
-      </div> */}
-        <div class="flex flex-nowrap items-center justify-center gap-2">
-          <For each={cards()}>
-            {(_, i) => {
-              const isFocused = () => i() == currentPos();
+          <For each={items()}>
+            {(card, i) => {
+              const isFocused = () => i() == selected();
               return (
-                <div
-                  class={cn(
-                    "transition-colors",
-                    "size-2 cursor-pointer rounded-full bg-slate-700",
-                    isFocused() && "bg-white",
-                  )}
-                  onClick={() => setCurrentPos(i())}
-                ></div>
+                <SwiperItem
+                  back={
+                    <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
+                      Back of {card.name}
+                    </p>
+                  }
+                  canBeTapped={() => isFocused() && !isDragging()}
+                  currentPos={selected()}
+                  toggleLocked={toggleLocked}
+                >
+                  <p class="pointer-events-none text-3xl font-semibold text-white select-none">
+                    {card.name}
+                  </p>
+                </SwiperItem>
               );
             }}
           </For>
         </div>
       </div>
-      <div class="flex items-center justify-center gap-4">
-        <button
-          class="cursor-pointer rounded-lg bg-white px-4 py-2"
-          onClick={onPrependClicked}
-        >
-          Prepend
-        </button>
-        <button
-          class="cursor-pointer rounded-lg bg-white px-4 py-2"
-          onClick={onAppendClicked}
-        >
-          Append
-        </button>
-      </div>
     </div>
   );
 };
-
-export default Swiper;
