@@ -8,7 +8,14 @@ import {
 import ArrowLeft from "./ArrowLeft";
 import ArrowRight from "./ArrowRight";
 import { cn } from "../libs/cn";
-import { animate, AnimationPlaybackControlsWithThen, press } from "motion";
+import { clamp } from "../libs/math";
+import {
+  animate,
+  AnimationOptions,
+  DOMKeyframesDefinition,
+  press,
+} from "motion";
+import Card from "./Card";
 
 const initialCards = [
   {
@@ -32,6 +39,8 @@ const initialCards = [
     name: "Card 5",
   },
 ];
+const MIN_SWIPE_THRESHOLD = 3; // 3px
+const SWIPE_SENSITIVITY = 1.3;
 
 const Swiper: Component = () => {
   let cardsDiv: HTMLDivElement | undefined;
@@ -41,16 +50,12 @@ const Swiper: Component = () => {
   const [prevX, setPrevX] = createSignal(0);
   const [delta, setDelta] = createSignal<number>(0);
   const [isDragging, setIsDragging] = createSignal(false);
+
   const canGoPrev = () => currentPos() > 0;
   const canGoNext = () => currentPos() < cards().length - 1;
 
   const adjustCurrentPos = (n: number) =>
-    setCurrentPos((pos) => {
-      const newPos = pos + n;
-      if (newPos < 0) return 0;
-      if (newPos > cards().length - 1) return cards().length - 1;
-      return newPos;
-    });
+    setCurrentPos((pos) => clamp(pos + n, 0, cards().length - 1));
 
   const onPrevClicked = () => {
     if (canGoPrev()) adjustCurrentPos(-1);
@@ -92,6 +97,44 @@ const Swiper: Component = () => {
     setIsDragging(false);
   };
 
+  const [tapped, setTapped] = createSignal(0);
+
+  createEffect(() => {
+    press(".card", (element) => {
+      const pressPos = currentPos();
+      // On press end
+      return () => {
+        let anim: DOMKeyframesDefinition;
+        let opt: AnimationOptions;
+
+        if (isDragging() || currentPos() != pressPos) return;
+
+        switch (tapped()) {
+          case 0:
+            anim = { scale: 1.5, rotateY: 0, zIndex: 20 };
+            opt = { type: "spring", stiffness: 500 };
+            break;
+          case 1:
+            anim = { rotateY: 180 };
+            opt = { type: "spring", duration: 1, stiffness: 100 };
+            break;
+          case 2:
+            anim = { scale: 1, rotateY: 0, zIndex: 0 };
+            opt = { type: "spring", stiffness: 200 };
+            break;
+          default:
+            break;
+        }
+
+        const a = animate(element, anim, opt);
+        setTapped((tapped) => {
+          if (tapped == 2) return 0;
+          return tapped + 1;
+        });
+      };
+    });
+  });
+
   createEffect(() => {
     animate(
       cardsDiv,
@@ -105,15 +148,17 @@ const Swiper: Component = () => {
       <div
         class="relative flex w-[19rem] items-center overflow-hidden"
         onPointerDown={(e) => {
-          setPrevX(e.clientX);
-          setDelta(0);
-          setIsDragging(true);
+          if (!tapped()) {
+            setPrevX(e.clientX);
+            setDelta(0);
+            setIsDragging(true);
+          }
         }}
         onPointerMove={(e) => {
           if (!isDragging()) return;
           const diff = e.clientX - prevX();
-          if (Math.abs(diff) > 3) {
-            setDelta((d) => d + diff * 1.3);
+          if (Math.abs(diff) > MIN_SWIPE_THRESHOLD) {
+            setDelta((d) => d + diff * SWIPE_SENSITIVITY);
             setPrevX(e.clientX);
           }
         }}
@@ -125,29 +170,31 @@ const Swiper: Component = () => {
             "absolute left-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
             "cursor-pointer",
             !canGoPrev() && "cursor-not-allowed",
+            tapped() != 0 && "hidden",
           )}
-          disabled={!canGoPrev()}
+          disabled={!canGoPrev() || tapped() != 0}
           onClick={onPrevClicked}
         >
           <ArrowLeft />
         </button>
         <div
           ref={cardsDiv}
-          class="z-0 flex h-48 snap-x flex-nowrap gap-4 px-14"
+          class="my-16 flex h-48 snap-x flex-nowrap items-center gap-4 px-14"
         >
           <For each={cards()}>
             {(card) => {
               return (
-                <div
-                  class={cn(
-                    "card aspect-square h-48 w-48 rounded-lg bg-slate-700 shadow-xl transition-all",
-                    "flex h-full snap-center items-center justify-center",
-                  )}
+                <Card
+                  back={
+                    <p class="pointer-events-none text-center text-3xl font-semibold text-white">
+                      Back of {card.name}
+                    </p>
+                  }
                 >
                   <p class="pointer-events-none text-3xl font-semibold text-white">
-                    {card.id}
+                    {card.name}
                   </p>
-                </div>
+                </Card>
               );
             }}
           </For>
@@ -157,8 +204,9 @@ const Swiper: Component = () => {
             "absolute right-2 z-10 rounded-full bg-white p-2 text-xl transition-all disabled:brightness-50",
             "cursor-pointer",
             !canGoNext() && "cursor-not-allowed",
+            tapped() != 0 && "hidden",
           )}
-          disabled={!canGoNext()}
+          disabled={!canGoNext() || tapped() != 0}
           onClick={onNextClicked}
         >
           <ArrowRight />
