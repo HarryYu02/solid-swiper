@@ -29,17 +29,20 @@ import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
 import ArrowLeft from "./ArrowLeft";
 import ArrowRight from "./ArrowRight";
-import Card from "./Card";
 
 const MIN_SWIPE_THRESHOLD = 3; // 3px
 const SWIPE_SENSITIVITY = 1.3;
 const CARD_GAP = 16; // 16px or 1rem
 const CARD_WIDTH = 192; // 192px or 12rem
-const CARD_FULL = CARD_WIDTH + CARD_GAP;
 
 type SwiperProps = {
   items: Accessor<typeof initialCards>;
-  opts?: { swipeThreshold: number; swipeSensitivity: number };
+  opts?: {
+    swipeThreshold: number;
+    swipeSensitivity: number;
+    cardWidth: number;
+    cardGap: number;
+  };
 };
 
 type SwiperContextProps = {
@@ -71,6 +74,8 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
     {
       items: () => [],
       opts: {
+        cardWidth: CARD_WIDTH,
+        cardGap: CARD_GAP,
         swipeThreshold: MIN_SWIPE_THRESHOLD,
         swipeSensitivity: SWIPE_SENSITIVITY,
       },
@@ -175,10 +180,16 @@ export const SwiperNext: VoidComponent<ComponentProps<"button">> = (props) => {
 };
 
 export const SwiperCounter: VoidComponent<ComponentProps<"div">> = (props) => {
-  const { selected, items } = useSwiper();
+  const { selected, items, isLocked } = useSwiper();
 
   return (
-    <div class={cn("flex items-center justify-center", props.class)}>
+    <div
+      class={cn(
+        "flex items-center justify-center",
+        props.class,
+        isLocked() && "hidden",
+      )}
+    >
       <p>
         {selected() + 1}/{items().length}
       </p>
@@ -191,21 +202,21 @@ export const SwiperItem: ParentComponent<
     back: JSXElement;
     canBeTapped: Accessor<boolean>;
     toggleLocked: () => void;
-    currentPos: number;
   }
 > = (props) => {
   let cardRef: HTMLDivElement | undefined;
   const [tapped, setTapped] = createSignal<number>(0);
+  const { opts, selected } = useSwiper();
 
   createEffect(() => {
     const cancelPress = press(cardRef, (element) => {
-      const pressPos = props.currentPos;
+      const pressPos = selected();
       // On press end
       return () => {
         let anim: DOMKeyframesDefinition;
         let opt: AnimationOptions;
 
-        if (!props.canBeTapped() || props.currentPos != pressPos) return;
+        if (!props.canBeTapped() || selected() != pressPos) return;
 
         switch (tapped()) {
           case 0:
@@ -247,7 +258,7 @@ export const SwiperItem: ParentComponent<
         "relative perspective-distant transform-3d",
       )}
       style={{
-        width: `${CARD_WIDTH}px`,
+        width: `${opts.cardWidth}px`,
       }}
     >
       <div class="absolute backface-hidden">{props.children}</div>
@@ -265,6 +276,8 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   const [delta, setDelta] = createSignal<number>(0);
   const [isDragging, setIsDragging] = createSignal(false);
 
+  const cardFullWidth = () => opts.cardWidth + opts.cardGap;
+
   const resetDragSignals = () =>
     batch(() => {
       setPrevX(0);
@@ -275,9 +288,11 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   const onDragDone = () => {
     if (isDragging() && delta() != 0 && prevX() != 0) {
       const distance = Math.abs(delta());
-      if (distance > CARD_FULL * 1.5) {
-        swipeBy(-1 * Math.floor((delta() + CARD_FULL / 2) / CARD_FULL));
-      } else if (distance > CARD_FULL / 2) {
+      if (distance > cardFullWidth() * 1.5) {
+        swipeBy(
+          -1 * Math.floor((delta() + cardFullWidth() / 2) / cardFullWidth()),
+        );
+      } else if (distance > cardFullWidth() / 2) {
         swipeBy(delta() < 0 ? 1 : -1);
       }
     }
@@ -287,7 +302,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   createEffect(() => {
     animate(
       cardsDiv,
-      { x: `calc(-${selected() * CARD_FULL}px + ${delta()}px)` },
+      { x: `calc(-${selected() * cardFullWidth()}px + ${delta()}px)` },
       { duration: 0.7, ease: "easeInOut", type: "spring", bounce: 0.25 },
     );
   });
@@ -322,7 +337,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
           ref={cardsDiv}
           class="flex flex-nowrap items-center"
           style={{
-            gap: `${CARD_GAP}px`,
+            gap: `${opts.cardGap}px`,
           }}
         >
           <For each={items()}>
@@ -336,7 +351,6 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
                     </p>
                   }
                   canBeTapped={() => isFocused() && !isDragging()}
-                  currentPos={selected()}
                   toggleLocked={toggleLocked}
                 >
                   <p class="pointer-events-none text-3xl font-semibold text-white select-none">

@@ -40,7 +40,7 @@ const App: Component = () => {
         <SwiperContent class="h-96 w-[19rem] pl-14" />
         <SwiperPrevious class="top-1/2 left-2 -translate-y-1/2" />
         <SwiperNext class="top-1/2 right-2 -translate-y-1/2" />
-        <SwiperCounter class="" />
+        <SwiperCounter class="absolute bottom-10 left-1/2 z-0 -translate-x-1/2" />
       </SwiperProvider>
       <div class="flex items-center justify-center gap-4">
         <button
