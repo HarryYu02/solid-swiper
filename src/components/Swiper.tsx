@@ -24,7 +24,7 @@ import {
   VoidComponent,
   type Component,
 } from "solid-js";
-import { initialCards } from "../constants/cardItems";
+import { Card, initialCards } from "../constants/cardItems";
 import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
 import ArrowLeft from "./ArrowLeft";
@@ -35,17 +35,7 @@ const SWIPE_SENSITIVITY = 1.3;
 const CARD_GAP = 16; // 16px or 1rem
 const CARD_WIDTH = 192; // 192px or 12rem
 
-type SwiperProps = {
-  items: Accessor<typeof initialCards>;
-  opts?: {
-    swipeThreshold: number;
-    swipeSensitivity: number;
-    cardWidth: number;
-    cardGap: number;
-  };
-};
-
-type SwiperContextProps = {
+export type SwiperApi = {
   isLocked: Accessor<boolean>;
   toggleLocked: () => void;
   selected: Accessor<number>;
@@ -55,7 +45,22 @@ type SwiperContextProps = {
   swipeBy: (n: number) => void;
   canSwipePrev: Accessor<boolean>;
   canSwipeNext: Accessor<boolean>;
-} & SwiperProps;
+};
+
+type SwiperProps = {
+  setApi?: (api: SwiperApi) => void;
+  items: Accessor<Card[]>;
+  opts?: {
+    swipeThreshold: number;
+    swipeSensitivity: number;
+    cardWidth: number;
+    cardGap: number;
+  };
+  prepend?: () => void;
+  append?: () => void;
+};
+
+type SwiperContextProps = SwiperApi & SwiperProps;
 
 const SwiperContext = createContext<Accessor<SwiperContextProps> | null>(null);
 
@@ -79,12 +84,17 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
         swipeThreshold: MIN_SWIPE_THRESHOLD,
         swipeSensitivity: SWIPE_SENSITIVITY,
       },
+      prepend: () => {},
+      append: () => {},
     },
     props,
   );
   const [local, rest] = splitProps(merge, [
+    "setApi",
     "items",
     "opts",
+    "prepend",
+    "append",
     "class",
     "children",
   ]);
@@ -114,19 +124,29 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
   };
   const toggleLocked = () => setIsLocked((isLocked) => !isLocked);
 
+  const api = {
+    selected,
+    isLocked,
+    toggleLocked,
+    canSwipeNext,
+    canSwipePrev,
+    swipeNext: onNextClicked,
+    swipePrev: onPrevClicked,
+    swipeTo: setSelected,
+    swipeBy,
+  };
+
+  if (local.setApi) {
+    local.setApi(api);
+  }
+
   const value = createMemo(() => {
     return {
       items: local.items,
       opts: local.opts,
-      selected,
-      isLocked,
-      toggleLocked,
-      canSwipeNext,
-      canSwipePrev,
-      swipeNext: onNextClicked,
-      swipePrev: onPrevClicked,
-      swipeTo: setSelected,
-      swipeBy,
+      prepend: local.prepend,
+      append: local.append,
+      ...api,
     } satisfies SwiperContextProps;
   });
 

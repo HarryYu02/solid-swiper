@@ -1,9 +1,11 @@
-export const initialCards: {
+export type Card = {
   id: number;
   name: string;
   frontImg?: string;
   backImg?: string;
-}[] = [
+};
+
+export const initialCards: Card[] = [
   {
     id: 1,
     name: "Card 1",

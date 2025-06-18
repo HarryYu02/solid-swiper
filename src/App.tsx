@@ -5,17 +5,20 @@ import {
   SwiperContent,
   SwiperProvider,
   SwiperCounter,
+  SwiperApi,
 } from "./components/Swiper";
 import { initialCards } from "./constants/cardItems";
 
 const App: Component = () => {
   const [cards, setCards] = createSignal(initialCards);
+  const [swiperApi, setSwiperApi] = createSignal<SwiperApi>();
   const onPrependClicked = () => {
     const firstCard = cards()[0];
     setCards((cards) => [
       { id: firstCard.id - 1, name: `Card ${firstCard.id - 1}` },
       ...cards,
     ]);
+    swiperApi().swipeBy(1);
   };
   const onAppendClicked = () => {
     const lastCard = cards()[cards().length - 1];
@@ -37,6 +40,7 @@ const App: Component = () => {
         </a>
       </h1>
       <SwiperProvider
+        setApi={setSwiperApi}
         items={cards}
         opts={{
           cardWidth: 192,
