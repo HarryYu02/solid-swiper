@@ -72,10 +72,6 @@ const App: Component = () => {
                       opt: { type: "spring", duration: 1, stiffness: 100 },
                     },
                     {
-                      anim: { rotateY: 360 },
-                      opt: { type: "spring", duration: 1, stiffness: 100 },
-                    },
-                    {
                       anim: { scale: 1, rotateY: 0, zIndex: 0 },
                       opt: { type: "spring", stiffness: 200 },
                     },
