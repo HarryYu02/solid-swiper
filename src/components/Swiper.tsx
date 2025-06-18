@@ -263,7 +263,7 @@ export const SwiperItem: ParentComponent<
     <div
       ref={cardRef}
       class={cn(
-        "card aspect-square rounded-lg bg-slate-700 shadow-xl",
+        "aspect-square rounded-lg bg-slate-700 shadow-xl",
         "flex cursor-pointer snap-center items-center justify-center",
         "relative perspective-distant transform-3d",
       )}
@@ -318,10 +318,9 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   });
 
   return (
-    <div class="flex overflow-hidden">
+    <div class="overflow-hidden">
       <div
-        ref={cardsDiv}
-        class={cn("flex items-center", props.class)}
+        class={cn("flex", props.class)}
         onPointerDown={(e) => {
           if (!isLocked()) {
             batch(() => {
@@ -345,7 +344,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
       >
         <div
           ref={cardsDiv}
-          class="flex flex-nowrap items-center"
+          class="flex items-center"
           style={{
             gap: `${opts.cardGap}px`,
           }}
