@@ -91,17 +91,26 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
 
   const [selected, setSelected] = createSignal<number>(0);
   const [isLocked, setIsLocked] = createSignal<boolean>(false);
-  const adjustCurrentPos = (n: number) => {
+  const swipeBy = (n: number) => {
     setSelected((pos) => clamp(pos + n, 0, local.items().length - 1));
   };
   const canSwipePrev: Accessor<boolean> = () => selected() > 0;
   const canSwipeNext: Accessor<boolean> = () =>
     selected() < local.items().length - 1;
   const onPrevClicked = () => {
-    if (canSwipePrev()) adjustCurrentPos(-1);
+    if (canSwipePrev()) swipeBy(-1);
   };
   const onNextClicked = () => {
-    if (canSwipeNext()) adjustCurrentPos(1);
+    if (canSwipeNext()) swipeBy(1);
+  };
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      swipeBy(-1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      swipeBy(1);
+    }
   };
   const toggleLocked = () => setIsLocked((isLocked) => !isLocked);
 
@@ -117,7 +126,7 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
       swipeNext: onNextClicked,
       swipePrev: onPrevClicked,
       swipeTo: setSelected,
-      swipeBy: adjustCurrentPos,
+      swipeBy,
     } satisfies SwiperContextProps;
   });
 
@@ -127,6 +136,7 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
         class={cn("relative", local.class)}
         role="region"
         aria-roledescription="swiper"
+        onKeyDown={handleKeyDown}
         {...rest}
       >
         {local.children}
