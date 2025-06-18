@@ -43,10 +43,7 @@ const App: Component = () => {
         setApi={setSwiperApi}
         items={cards}
         opts={{
-          cardWidth: 192,
-          cardGap: 16,
-          swipeSensitivity: 1.3,
-          swipeThreshold: 3,
+          itemWidth: 192,
         }}
       >
         <SwiperContent class="h-96 w-[19rem] pl-14" />

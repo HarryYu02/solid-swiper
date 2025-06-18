@@ -24,7 +24,7 @@ import {
   VoidComponent,
   type Component,
 } from "solid-js";
-import { Card, initialCards } from "../constants/cardItems";
+import { Card } from "../constants/cardItems";
 import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
 import ArrowLeft from "./ArrowLeft";
@@ -51,13 +51,11 @@ type SwiperProps = {
   setApi?: (api: SwiperApi) => void;
   items: Accessor<Card[]>;
   opts?: {
-    swipeThreshold: number;
-    swipeSensitivity: number;
-    cardWidth: number;
-    cardGap: number;
+    swipeThreshold?: number;
+    swipeSensitivity?: number;
+    itemWidth?: number;
+    itemGap?: number;
   };
-  prepend?: () => void;
-  append?: () => void;
 };
 
 type SwiperContextProps = SwiperApi & SwiperProps;
@@ -78,14 +76,7 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
   const merge = mergeProps<ParentProps<ComponentProps<"div"> & SwiperProps>[]>(
     {
       items: () => [],
-      opts: {
-        cardWidth: CARD_WIDTH,
-        cardGap: CARD_GAP,
-        swipeThreshold: MIN_SWIPE_THRESHOLD,
-        swipeSensitivity: SWIPE_SENSITIVITY,
-      },
-      prepend: () => {},
-      append: () => {},
+      opts: {},
     },
     props,
   );
@@ -93,11 +84,18 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
     "setApi",
     "items",
     "opts",
-    "prepend",
-    "append",
     "class",
     "children",
   ]);
+  const resolvedOpts = () => {
+    return {
+      itemWidth: CARD_WIDTH,
+      itemGap: CARD_GAP,
+      swipeThreshold: MIN_SWIPE_THRESHOLD,
+      swipeSensitivity: SWIPE_SENSITIVITY,
+      ...local.opts,
+    };
+  };
 
   const [selected, setSelected] = createSignal<number>(0);
   const [isLocked, setIsLocked] = createSignal<boolean>(false);
@@ -143,9 +141,7 @@ export const SwiperProvider: Component<ComponentProps<"div"> & SwiperProps> = (
   const value = createMemo(() => {
     return {
       items: local.items,
-      opts: local.opts,
-      prepend: local.prepend,
-      append: local.append,
+      opts: resolvedOpts(),
       ...api,
     } satisfies SwiperContextProps;
   });
@@ -288,7 +284,7 @@ export const SwiperItem: ParentComponent<
         "relative perspective-distant transform-3d",
       )}
       style={{
-        width: `${opts.cardWidth}px`,
+        width: `${opts.itemWidth}px`,
       }}
     >
       <div class="absolute backface-hidden">{props.children}</div>
@@ -306,7 +302,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   const [delta, setDelta] = createSignal<number>(0);
   const [isDragging, setIsDragging] = createSignal(false);
 
-  const cardFullWidth = () => opts.cardWidth + opts.cardGap;
+  const cardFullWidth = () => opts.itemWidth + opts.itemGap;
 
   const resetDragSignals = () =>
     batch(() => {
@@ -366,7 +362,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
           ref={cardsDiv}
           class="flex items-center"
           style={{
-            gap: `${opts.cardGap}px`,
+            gap: `${opts.itemGap}px`,
           }}
         >
           <For each={items()}>
