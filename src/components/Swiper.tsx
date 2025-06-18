@@ -245,10 +245,12 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
     resetDragSignals();
   };
 
+  const dx = createMemo(() => delta() - selected() * cardFullWidth());
+
   createEffect(() => {
     animate(
       cardsDiv,
-      { x: `calc(-${selected() * cardFullWidth()}px + ${delta()}px)` },
+      { x: `${dx()}px` },
       { duration: 0.7, ease: "easeInOut", type: "spring", bounce: 0.25 },
     );
   });
