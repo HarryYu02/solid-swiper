@@ -7,7 +7,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  For,
   mergeProps,
   ParentProps,
   Setter,
@@ -21,7 +20,6 @@ import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
 import ArrowLeft from "./ArrowLeft";
 import ArrowRight from "./ArrowRight";
-import TapCard from "./TapCard";
 
 const MIN_SWIPE_THRESHOLD = 3; // 3px
 const SWIPE_SENSITIVITY = 1.3;
@@ -218,8 +216,7 @@ export const SwiperCounter: VoidComponent<ComponentProps<"div">> = (props) => {
 
 export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   let cardsDiv: HTMLDivElement | undefined;
-  const { opts, selected, isLocked, toggleLocked, swipeBy, items } =
-    useSwiper();
+  const { opts, selected, isLocked, swipeBy } = useSwiper();
 
   const [prevX, setPrevX] = createSignal(0);
   const [delta, setDelta] = createSignal<number>(0);
@@ -288,28 +285,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
             gap: `${opts.itemGap}px`,
           }}
         >
-          <For each={items()}>
-            {(card, i) => {
-              const isFocused = () => i() == selected();
-              return (
-                <TapCard
-                  back={
-                    <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
-                      Back of {card.name}
-                    </p>
-                  }
-                  canBeTapped={() => isFocused() && !isDragging()}
-                  toggleLocked={toggleLocked}
-                  width={() => opts.itemWidth}
-                  selected={selected}
-                >
-                  <p class="pointer-events-none text-3xl font-semibold text-white select-none">
-                    {card.name}
-                  </p>
-                </TapCard>
-              );
-            }}
-          </For>
+          {props.children}
         </div>
       </div>
     </div>

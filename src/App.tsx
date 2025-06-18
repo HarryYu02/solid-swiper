@@ -1,4 +1,4 @@
-import { createSignal, type Component } from "solid-js";
+import { createSignal, For, type Component } from "solid-js";
 import {
   SwiperNext,
   SwiperPrevious,
@@ -8,6 +8,7 @@ import {
   SwiperApi,
 } from "./components/Swiper";
 import { initialCards } from "./constants/cardItems";
+import TapCard from "./components/TapCard";
 
 const App: Component = () => {
   const [cards, setCards] = createSignal(initialCards);
@@ -46,7 +47,48 @@ const App: Component = () => {
           itemWidth: 192,
         }}
       >
-        <SwiperContent class="h-96 w-[19rem] pl-14" />
+        <SwiperContent class="h-96 w-[19rem] pl-14">
+          <For each={cards()}>
+            {(card, i) => {
+              const isFocused = () => i() == swiperApi().selected();
+              return (
+                <TapCard
+                  back={
+                    <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
+                      Back of {card.name}
+                    </p>
+                  }
+                  canBeTapped={isFocused}
+                  toggleLocked={swiperApi().toggleLocked}
+                  width={() => 192}
+                  selected={swiperApi().selected}
+                  anims={[
+                    {
+                      anim: { scale: 1.5, rotateY: 0, zIndex: 20 },
+                      opt: { type: "spring", stiffness: 500 },
+                    },
+                    {
+                      anim: { rotateY: 180 },
+                      opt: { type: "spring", duration: 1, stiffness: 100 },
+                    },
+                    {
+                      anim: { rotateY: 360 },
+                      opt: { type: "spring", duration: 1, stiffness: 100 },
+                    },
+                    {
+                      anim: { scale: 1, rotateY: 0, zIndex: 0 },
+                      opt: { type: "spring", stiffness: 200 },
+                    },
+                  ]}
+                >
+                  <p class="pointer-events-none text-3xl font-semibold text-white select-none">
+                    {card.name}
+                  </p>
+                </TapCard>
+              );
+            }}
+          </For>
+        </SwiperContent>
         <SwiperPrevious class="top-1/2 left-2 -translate-y-1/2" />
         <SwiperNext class="top-1/2 right-2 -translate-y-1/2" />
         <SwiperCounter class="absolute bottom-10 left-1/2 z-0 -translate-x-1/2" />
