@@ -1,9 +1,4 @@
-import {
-  animate,
-  AnimationOptions,
-  DOMKeyframesDefinition,
-  press,
-} from "motion";
+import { animate } from "motion";
 import {
   Accessor,
   batch,
@@ -13,10 +8,7 @@ import {
   createMemo,
   createSignal,
   For,
-  JSXElement,
   mergeProps,
-  onCleanup,
-  ParentComponent,
   ParentProps,
   Setter,
   splitProps,
@@ -29,6 +21,7 @@ import { cn } from "../libs/cn";
 import { clamp } from "../libs/math";
 import ArrowLeft from "./ArrowLeft";
 import ArrowRight from "./ArrowRight";
+import TapCard from "./TapCard";
 
 const MIN_SWIPE_THRESHOLD = 3; // 3px
 const SWIPE_SENSITIVITY = 1.3;
@@ -223,76 +216,6 @@ export const SwiperCounter: VoidComponent<ComponentProps<"div">> = (props) => {
   );
 };
 
-export const SwiperItem: ParentComponent<
-  ComponentProps<"div"> & {
-    back: JSXElement;
-    canBeTapped: Accessor<boolean>;
-    toggleLocked: () => void;
-  }
-> = (props) => {
-  let cardRef: HTMLDivElement | undefined;
-  const [tapped, setTapped] = createSignal<number>(0);
-  const { opts, selected } = useSwiper();
-
-  createEffect(() => {
-    const cancelPress = press(cardRef, (element) => {
-      const pressPos = selected();
-      // On press end
-      return () => {
-        let anim: DOMKeyframesDefinition;
-        let opt: AnimationOptions;
-
-        if (!props.canBeTapped() || selected() != pressPos) return;
-
-        switch (tapped()) {
-          case 0:
-            anim = { scale: 1.5, rotateY: 0, zIndex: 20 };
-            opt = { type: "spring", stiffness: 500 };
-            break;
-          case 1:
-            anim = { rotateY: 180 };
-            opt = { type: "spring", duration: 1, stiffness: 100 };
-            break;
-          case 2:
-            anim = { scale: 1, rotateY: 0, zIndex: 0 };
-            opt = { type: "spring", stiffness: 200 };
-            break;
-          default:
-            break;
-        }
-
-        animate(element, anim, opt);
-        setTapped((prev) => {
-          if (prev == 0 || prev == 2) props.toggleLocked();
-          const next = prev === 2 ? 0 : prev + 1;
-          return next;
-        });
-      };
-    });
-
-    onCleanup(() => {
-      cancelPress();
-    });
-  });
-
-  return (
-    <div
-      ref={cardRef}
-      class={cn(
-        "aspect-square rounded-lg bg-slate-700 shadow-xl",
-        "flex cursor-pointer snap-center items-center justify-center",
-        "relative perspective-distant transform-3d",
-      )}
-      style={{
-        width: `${opts.itemWidth}px`,
-      }}
-    >
-      <div class="absolute backface-hidden">{props.children}</div>
-      <div class="absolute rotate-y-180 backface-hidden">{props.back}</div>
-    </div>
-  );
-};
-
 export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
   let cardsDiv: HTMLDivElement | undefined;
   const { opts, selected, isLocked, toggleLocked, swipeBy, items } =
@@ -369,7 +292,7 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
             {(card, i) => {
               const isFocused = () => i() == selected();
               return (
-                <SwiperItem
+                <TapCard
                   back={
                     <p class="pointer-events-none text-center text-3xl font-semibold text-white select-none">
                       Back of {card.name}
@@ -377,11 +300,13 @@ export const SwiperContent: Component<ComponentProps<"div">> = (props) => {
                   }
                   canBeTapped={() => isFocused() && !isDragging()}
                   toggleLocked={toggleLocked}
+                  width={() => opts.itemWidth}
+                  selected={selected}
                 >
                   <p class="pointer-events-none text-3xl font-semibold text-white select-none">
                     {card.name}
                   </p>
-                </SwiperItem>
+                </TapCard>
               );
             }}
           </For>
